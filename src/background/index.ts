@@ -3,14 +3,19 @@ import { generateReport } from '@/ai/client'
 import { getSettings, saveSettings, saveReport } from '@/utils/storage'
 import type { SubtitleData, Report, ReportProgress } from '@/types'
 
-// 保持 Service Worker 存活 (Chrome MV3 最小间隔为 1 分钟)
-chrome.alarms.create('keepAlive', { periodInMinutes: 1 })
-chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'keepAlive') {
-    // 空操作，仅保活
-  }
-})
+// 保持 Service Worker 存活
+try {
+  chrome.alarms.create('keepAlive', { periodInMinutes: 1 })
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'keepAlive') {
+      // 空操作，仅保活
+    }
+  })
+} catch (e) {
+  console.warn('Failed to create keepAlive alarm:', e)
+}
 
+// 消息处理
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GENERATE_REPORT') {
     handleGenerateReport(message.payload as SubtitleData, sendResponse)
@@ -42,6 +47,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false
 })
 
+// 生成报告
 async function handleGenerateReport(
   subtitleData: SubtitleData,
   sendResponse: (response: any) => void
@@ -63,12 +69,16 @@ async function handleGenerateReport(
       subtitleData.videoInfo.title,
       (progress) => {
         // 广播进度给 popup
-        chrome.runtime.sendMessage({
-          type: 'REPORT_PROGRESS',
-          payload: progress as ReportProgress
-        }).catch(() => {
-          // popup 可能已关闭，忽略错误
-        })
+        try {
+          chrome.runtime.sendMessage({
+            type: 'REPORT_PROGRESS',
+            payload: progress as ReportProgress
+          }).catch(() => {
+            // popup 可能已关闭，忽略错误
+          })
+        } catch (e) {
+          // 忽略错误
+        }
       }
     )
 
