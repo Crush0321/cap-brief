@@ -18,5 +18,7 @@ export default defineConfig({
         options: resolve(__dirname, 'src/options/index.html')
       }
     }
-  }
+  },
+  // Chrome 扩展需要相对路径
+  base: ''
 })
