@@ -1,10 +1,10 @@
 // src/background/index.ts
 import { generateReport } from '@/ai/client'
-import { getSettings, saveReport } from '@/utils/storage'
+import { getSettings, saveSettings, saveReport } from '@/utils/storage'
 import type { SubtitleData, Report, ReportProgress } from '@/types'
 
-// 保持 Service Worker 存活
-chrome.alarms.create('keepAlive', { periodInMinutes: 0.5 })
+// 保持 Service Worker 存活 (Chrome MV3 最小间隔为 1 分钟)
+chrome.alarms.create('keepAlive', { periodInMinutes: 1 })
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'keepAlive') {
     // 空操作，仅保活
@@ -18,18 +18,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'GET_SETTINGS') {
-    getSettings().then(settings => sendResponse({ success: true, data: settings }))
+    getSettings()
+      .then(settings => sendResponse({ success: true, data: settings }))
+      .catch(error => sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : '获取设置失败'
+      }))
     return true
   }
 
   if (message.type === 'SAVE_SETTINGS') {
-    import('@/utils/storage').then(({ saveSettings }) => {
-      saveSettings(message.payload).then(() =>
-        sendResponse({ success: true })
-      )
-    })
+    saveSettings(message.payload)
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : '保存设置失败'
+      }))
     return true
   }
+
+  // 未知消息类型
+  sendResponse({ success: false, error: `未知消息类型: ${message.type}` })
+  return false
 })
 
 async function handleGenerateReport(
