@@ -1,7 +1,4 @@
 import { createApp } from 'vue'
+import App from './App.vue'
 
-const app = createApp({
-  template: '<div>Popup</div>'
-})
-
-app.mount('#app')
+createApp(App).mount('#app')
