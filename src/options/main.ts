@@ -1,7 +1,5 @@
+// src/options/main.ts
 import { createApp } from 'vue'
+import App from './App.vue'
 
-const app = createApp({
-  template: '<div>Options</div>'
-})
-
-app.mount('#app')
+createApp(App).mount('#app')
