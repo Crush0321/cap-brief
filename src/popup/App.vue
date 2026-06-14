@@ -12,8 +12,11 @@ const videoTitle = ref<string>('')
 const subtitleData = ref<SubtitleData | null>(null)
 const report = ref<Report | null>(null)
 const errorMessage = ref<string>('')
+const errorType = ref<'api-key' | 'network' | 'generic'>('generic')
 const progressContent = ref<string>('')
 const isBilibiliPage = ref(false)
+const currentChunk = ref<number>(0)
+const totalChunks = ref<number>(0)
 
 // 检查当前页面
 onMounted(async () => {
@@ -37,6 +40,12 @@ function handleProgress(message: any) {
     const progress = message.payload as ReportProgress
     if (progress.content) {
       progressContent.value = progress.content
+      // 解析分块进度，如 "正在处理第 2/5 部分..."
+      const chunkMatch = progress.content.match(/(\d+)\/(\d+)/)
+      if (chunkMatch) {
+        currentChunk.value = parseInt(chunkMatch[1])
+        totalChunks.value = parseInt(chunkMatch[2])
+      }
     }
   }
 }
@@ -63,12 +72,19 @@ async function handleExtract() {
   }
 }
 
+function openSettingsPage() {
+  chrome.runtime.openOptionsPage()
+}
+
 async function handleGenerate() {
   if (!subtitleData.value) return
 
   state.value = 'generating'
   errorMessage.value = ''
+  errorType.value = 'generic'
   progressContent.value = ''
+  currentChunk.value = 0
+  totalChunks.value = 0
 
   try {
     const response = await chrome.runtime.sendMessage({
@@ -84,7 +100,18 @@ async function handleGenerate() {
     }
   } catch (error) {
     state.value = 'error'
-    errorMessage.value = error instanceof Error ? error.message : '生成报告失败'
+    const msg = error instanceof Error ? error.message : '生成报告失败'
+
+    if (msg.includes('API Key') || msg.includes('apiKey')) {
+      errorType.value = 'api-key'
+      errorMessage.value = '未配置 API Key，请先在设置页面配置 DeepSeek API Key'
+    } else if (error instanceof TypeError || msg.includes('Failed to fetch') || msg.includes('network') || msg.includes('网络')) {
+      errorType.value = 'network'
+      errorMessage.value = '网络连接失败，请检查网络后重试'
+    } else {
+      errorType.value = 'generic'
+      errorMessage.value = msg
+    }
   }
 }
 
@@ -101,7 +128,10 @@ function handleReset() {
   subtitleData.value = null
   report.value = null
   errorMessage.value = ''
+  errorType.value = 'generic'
   progressContent.value = ''
+  currentChunk.value = 0
+  totalChunks.value = 0
 }
 </script>
 
@@ -147,7 +177,14 @@ function handleReset() {
       <!-- 生成中 -->
       <div v-else-if="state === 'generating'" class="loading">
         <div class="spinner"></div>
-        <p>AI 正在生成报告...</p>
+        <p v-if="totalChunks > 0">AI 正在生成报告... ({{ currentChunk }}/{{ totalChunks }})</p>
+        <p v-else>AI 正在生成报告...</p>
+        <div v-if="totalChunks > 1" class="chunk-progress">
+          <div class="chunk-bar">
+            <div class="chunk-bar-fill" :style="{ width: (currentChunk / totalChunks * 100) + '%' }"></div>
+          </div>
+          <span class="chunk-text">正在处理第 {{ currentChunk }}/{{ totalChunks }} 部分</span>
+        </div>
         <div v-if="progressContent" class="progress-preview">
           {{ progressContent.substring(0, 200) }}...
         </div>
@@ -162,7 +199,12 @@ function handleReset() {
       <!-- 错误态 -->
       <div v-else-if="state === 'error'" class="error">
         <p>❌ {{ errorMessage }}</p>
-        <button class="btn-retry" @click="handleRetry">重试</button>
+        <div class="error-actions">
+          <button v-if="errorType === 'api-key'" class="btn-settings" @click="openSettingsPage">
+            打开设置
+          </button>
+          <button class="btn-retry" @click="handleRetry">重试</button>
+        </div>
       </div>
     </main>
   </div>
@@ -227,6 +269,31 @@ function handleReset() {
   to { transform: rotate(360deg); }
 }
 
+.chunk-progress {
+  margin-top: 12px;
+}
+
+.chunk-bar {
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.chunk-bar-fill {
+  height: 100%;
+  background: #00a1d6;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.chunk-text {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #999;
+}
+
 .progress-preview {
   margin-top: 16px;
   padding: 12px;
@@ -245,8 +312,27 @@ function handleReset() {
   color: #e74c3c;
 }
 
-.btn-retry {
+.error-actions {
   margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-settings {
+  padding: 8px 24px;
+  background: #ff6b35;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-settings:hover {
+  background: #e55a28;
+}
+
+.btn-retry {
   padding: 8px 24px;
   background: #00a1d6;
   color: white;
