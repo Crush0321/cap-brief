@@ -7,6 +7,7 @@ import {
 } from './prompts'
 
 const MAX_TOKENS_PER_CHUNK = 4000
+const DEEPSEEK_MODEL = 'deepseek-chat'
 
 /** 简单估算 token 数（中文约 1.5 字/token） */
 function estimateTokens(text: string): number {
@@ -61,7 +62,7 @@ async function callDeepSeek(
       'Authorization': `Bearer ${settings.apiKey}`
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: DEEPSEEK_MODEL,
       messages: [{ role: 'user', content: prompt }],
       stream: !!onChunk
     })
@@ -94,8 +95,8 @@ async function callDeepSeek(
           const content = parsed.choices?.[0]?.delta?.content || ''
           fullText += content
           onChunk(fullText)
-        } catch {
-          // 忽略解析错误
+        } catch (e) {
+          console.debug('SSE parse error:', data, e)
         }
       }
     }
@@ -121,6 +122,7 @@ export async function generateReport(
     // 短视频：一次性生成
     onProgress?.({ stage: 'generating' })
     const prompt =
+      `视频标题: ${videoTitle}\n\n` +
       getSummaryPrompt(settings.reportLanguage) +
       formatSubtitles(chunks[0])
     return callDeepSeek(settings, prompt, (text) =>
@@ -138,6 +140,7 @@ export async function generateReport(
     })
 
     const prompt =
+      `视频标题: ${videoTitle}\n\n` +
       getChunkSummaryPrompt(i, chunks.length, settings.reportLanguage) +
       '\n\n' +
       formatSubtitles(chunks[i])
@@ -149,6 +152,7 @@ export async function generateReport(
   // 合并摘要
   onProgress?.({ stage: 'generating', content: '正在合并生成最终报告...' })
   const mergePrompt =
+    `视频标题: ${videoTitle}\n\n` +
     getMergePrompt(settings.reportLanguage) +
     '\n\n' +
     chunkSummaries
