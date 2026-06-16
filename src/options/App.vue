@@ -9,25 +9,41 @@ const settings = ref<Settings>({
 })
 
 const saved = ref(false)
+const loading = ref(true)
+const error = ref<string | null>(null)
 
 onMounted(async () => {
-  const response = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' })
-  if (response.success) {
-    settings.value = response.data
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' })
+    if (response.success) {
+      settings.value = response.data
+    } else {
+      error.value = response.error || '获取设置失败'
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '获取设置失败'
+  } finally {
+    loading.value = false
   }
 })
 
 async function handleSave() {
-  const response = await chrome.runtime.sendMessage({
-    type: 'SAVE_SETTINGS',
-    payload: settings.value
-  })
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'SAVE_SETTINGS',
+      payload: settings.value
+    })
 
-  if (response.success) {
-    saved.value = true
-    setTimeout(() => {
-      saved.value = false
-    }, 2000)
+    if (response.success) {
+      saved.value = true
+      setTimeout(() => {
+        saved.value = false
+      }, 2000)
+    } else {
+      error.value = response.error || '保存设置失败'
+    }
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '保存设置失败'
   }
 }
 </script>
@@ -36,7 +52,20 @@ async function handleSave() {
   <div class="settings-container">
     <h1>⚙️ 设置</h1>
 
-    <form @submit.prevent="handleSave" class="settings-form">
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading">
+      <div class="spinner"></div>
+      <p>加载设置中...</p>
+    </div>
+
+    <!-- 错误提示 -->
+    <div v-else-if="error" class="error">
+      <p>❌ {{ error }}</p>
+      <button class="btn-retry" @click="location.reload()">重试</button>
+    </div>
+
+    <!-- 设置表单 -->
+    <form v-else @submit.prevent="handleSave" class="settings-form">
       <div class="form-group">
         <label for="apiKey">DeepSeek API Key</label>
         <input
@@ -91,6 +120,45 @@ async function handleSave() {
 h1 {
   margin-bottom: 24px;
   color: #333;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 16px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #00a1d6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error {
+  text-align: center;
+  padding: 40px 20px;
+  color: #e74c3c;
+}
+
+.btn-retry {
+  margin-top: 16px;
+  padding: 8px 24px;
+  background: #00a1d6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-retry:hover {
+  background: #0090c4;
 }
 
 .form-group {

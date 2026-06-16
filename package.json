@@ -12,11 +12,14 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "dompurify": "^3.4.10",
+    "marked": "^18.0.5",
     "vue": "^3.5.38"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^2.6.1",
     "@types/chrome": "^0.1.43",
+    "@types/dompurify": "^3.0.5",
     "@vitejs/plugin-vue": "^5.2.4",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",

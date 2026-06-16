@@ -56,7 +56,12 @@ async function handleExtract() {
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-    const response = await chrome.tabs.sendMessage(tab.id!, {
+
+    if (!tab.id) {
+      throw new Error('无法获取当前标签页')
+    }
+
+    const response = await chrome.tabs.sendMessage(tab.id, {
       type: 'EXTRACT_SUBTITLE'
     })
 

@@ -49,13 +49,27 @@ export async function getSubtitleUrl(
 /** 下载并解析字幕 */
 export async function fetchSubtitles(url: string): Promise<SubtitleItem[]> {
   const response = await fetch(url)
+
+  if (!response.ok) {
+    throw new Error(`下载字幕失败: ${response.status} ${response.statusText}`)
+  }
+
   const data = await response.json()
 
-  return data.body.map((item: any) => ({
-    from: item.from,
-    to: item.to,
-    content: item.content
-  }))
+  if (!data.body || !Array.isArray(data.body)) {
+    throw new Error('字幕数据格式错误: 缺少 body 数组')
+  }
+
+  return data.body.map((item: any) => {
+    if (typeof item.from !== 'number' || typeof item.to !== 'number' || typeof item.content !== 'string') {
+      throw new Error('字幕项格式错误')
+    }
+    return {
+      from: item.from,
+      to: item.to,
+      content: item.content
+    }
+  })
 }
 
 /** 清洗字幕：去重、去空 */

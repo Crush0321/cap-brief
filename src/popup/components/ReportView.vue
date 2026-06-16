@@ -1,10 +1,18 @@
 <script setup lang="ts">
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import ExportButtons from './ExportButtons.vue'
 import type { Report } from '@/types'
 
 defineProps<{
   report: Report
 }>()
+
+/** 安全的 Markdown 渲染 */
+function renderMarkdown(md: string): string {
+  const html = marked.parse(md, { async: false }) as string
+  return DOMPurify.sanitize(html)
+}
 </script>
 
 <template>
@@ -21,17 +29,6 @@ defineProps<{
     <ExportButtons :report="report" />
   </div>
 </template>
-
-<script lang="ts">
-/** 简单的 Markdown 渲染 */
-function renderMarkdown(md: string): string {
-  return md
-    .replace(/### (.+)/g, '<h3>$1</h3>')
-    .replace(/## (.+)/g, '<h2>$1</h2>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n/g, '<br>')
-}
-</script>
 
 <style scoped>
 .report-container {
@@ -76,5 +73,42 @@ function renderMarkdown(md: string): string {
   font-size: 14px;
   margin: 10px 0 6px;
   color: #333;
+}
+
+.report-content :deep(p) {
+  margin: 8px 0;
+}
+
+.report-content :deep(ul),
+.report-content :deep(ol) {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.report-content :deep(li) {
+  margin: 4px 0;
+}
+
+.report-content :deep(strong) {
+  font-weight: 600;
+}
+
+.report-content :deep(code) {
+  background: #f5f5f5;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.report-content :deep(pre) {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+.report-content :deep(pre code) {
+  background: none;
+  padding: 0;
 }
 </style>
